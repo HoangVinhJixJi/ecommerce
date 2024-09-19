@@ -1,6 +1,6 @@
 package com.nhvinh.ecommerce.controller;
 
-import com.nhvinh.ecommerce.dto.APIResponse;
+import com.nhvinh.ecommerce.dto.ApiResponse;
 import com.nhvinh.ecommerce.dto.PermissionRequest;
 import com.nhvinh.ecommerce.dto.PermissionResponse;
 import com.nhvinh.ecommerce.service.PermissionService;
@@ -24,26 +24,26 @@ public class PermissionController {
 
     PermissionService permissionService;
     @PostMapping("/create")
-    APIResponse<PermissionResponse> createPermission(@RequestBody @Valid PermissionRequest request) {
-        APIResponse<PermissionResponse> response = new APIResponse<>();
+    ApiResponse<PermissionResponse> createPermission(@RequestBody @Valid PermissionRequest request) {
+        ApiResponse<PermissionResponse> response = new ApiResponse<>();
         response.setResult(permissionService.createPermission(request));
         response.setMessage("Permission created successfully");
         return response;
     }
     @GetMapping("/all")
-    APIResponse<List<PermissionResponse>> getAllPermissions(){
+    ApiResponse<List<PermissionResponse>> getAllPermissions(){
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         authentication.getAuthorities().forEach(
                 grantedAuthority -> log.info("role: {}",grantedAuthority.getAuthority())
         );
-       return  APIResponse.<List<PermissionResponse>>builder()
+       return  ApiResponse.<List<PermissionResponse>>builder()
                .result(permissionService.getAllPermissions())
                .build();
 
     }
     @GetMapping("/{permissionId}")
-    APIResponse<PermissionResponse> getPermission(@PathVariable("permissionId") String permissionId){
-        return APIResponse.<PermissionResponse>builder()
+    ApiResponse<PermissionResponse> getPermission(@PathVariable("permissionId") String permissionId){
+        return ApiResponse.<PermissionResponse>builder()
                 .result(permissionService.getPermissionById(permissionId))
                 .build();
     }

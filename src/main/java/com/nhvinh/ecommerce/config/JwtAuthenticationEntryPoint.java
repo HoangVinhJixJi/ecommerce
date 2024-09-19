@@ -2,7 +2,7 @@ package com.nhvinh.ecommerce.config;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhvinh.ecommerce.dto.APIResponse;
+import com.nhvinh.ecommerce.dto.ApiResponse;
 import com.nhvinh.ecommerce.exception.ErrorCode;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +18,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         ErrorCode errorCode = ErrorCode.UNAUTHENTICATED;
         response.setStatus(errorCode.getStatusCode().value());
         response.setContentType("application/json");
-        APIResponse<?> apiResponse = APIResponse.builder()
+        ApiResponse<?> apiResponse = ApiResponse.builder()
                 .code(errorCode.getCode())
                 .result(errorCode.getMessage())
                 .build();

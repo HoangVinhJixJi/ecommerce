@@ -1,6 +1,6 @@
 package com.nhvinh.ecommerce.controller;
 
-import com.nhvinh.ecommerce.dto.APIResponse;
+import com.nhvinh.ecommerce.dto.ApiResponse;
 import com.nhvinh.ecommerce.dto.RoleRequest;
 import com.nhvinh.ecommerce.dto.RoleResponse;
 import com.nhvinh.ecommerce.service.RoleService;
@@ -24,26 +24,26 @@ public class RoleController {
 
     RoleService roleService;
     @PostMapping("/create")
-    APIResponse<RoleResponse> createRole(@RequestBody @Valid RoleRequest request) {
-        APIResponse<RoleResponse> response = new APIResponse<>();
+    ApiResponse<RoleResponse> createRole(@RequestBody @Valid RoleRequest request) {
+        ApiResponse<RoleResponse> response = new ApiResponse<>();
         response.setResult(roleService.createRole(request));
         response.setMessage("Role created successfully");
         return response;
     }
     @GetMapping("/all")
-    APIResponse<List<RoleResponse>> getAllRoles(){
+    ApiResponse<List<RoleResponse>> getAllRoles(){
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         authentication.getAuthorities().forEach(
                 grantedAuthority -> log.info("role: {}",grantedAuthority.getAuthority())
         );
-       return  APIResponse.<List<RoleResponse>>builder()
+       return  ApiResponse.<List<RoleResponse>>builder()
                .result(roleService.getAllRoles())
                .build();
 
     }
     @GetMapping("/{roleId}")
-    APIResponse<RoleResponse> getRole(@PathVariable("roleId") String roleId){
-        return APIResponse.<RoleResponse>builder()
+    ApiResponse<RoleResponse> getRole(@PathVariable("roleId") String roleId){
+        return ApiResponse.<RoleResponse>builder()
                 .result(roleService.getRoleById(roleId))
                 .build();
     }

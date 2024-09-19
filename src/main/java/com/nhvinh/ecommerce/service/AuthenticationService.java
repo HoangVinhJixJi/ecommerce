@@ -57,6 +57,7 @@ public class AuthenticationService {
     protected long REFRESHABLE_DURATION;
 
     public AuthenticationResponse authenticate(AuthenticationRequest request){
+        log.info("function  authenticate in AuthenticationService");
         log.info("SignerKey: {}", SIGNER_KEY);
         var user = userRepository.findByUsername(request.getUsername()).orElseThrow(()-> new CustomException(ErrorCode.USER_NOT_EXISTED));
 
@@ -74,36 +75,63 @@ public class AuthenticationService {
 
     }
 
-    public void logout(LogoutRequest request) throws ParseException, JOSEException {
+    public void logout(LogoutRequest request) {
+        log.info("function logout in AuthenticationService");
         try {
-            var signToken = verifyToken(request.getToken(), false);
-            String jit = signToken.getJWTClaimsSet().getJWTID();
-            Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
+            var signToken = verifyToken(request.getToken(), false);  // Xác thực token
+            String jit = signToken.getJWTClaimsSet().getJWTID();  // Lấy JWT ID (jit)
+            Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();  // Lấy thời gian hết hạn
+
+            // Kiểm tra xem token đã bị vô hiệu hóa trước đó chưa
+            if (invalidatedTokenRepository.existsById(jit)) {
+                log.info("Token already invalidated");
+                return; // Dừng nếu token đã bị vô hiệu hóa
+            }
+
+            // Tạo đối tượng token vô hiệu hóa và lưu vào database
             InvalidatedToken invalidatedToken = InvalidatedToken.builder()
                     .id(jit)
                     .expiryTime(expiryTime)
                     .build();
             invalidatedTokenRepository.save(invalidatedToken);
-        }
-        catch (CustomException e){
-            log.error("Token already expired");
-        }
+            log.info("Token invalidated successfully");
 
-
+        } catch (CustomException e) {
+            log.error("Token already expired or invalid: ", e);
+            throw new CustomException(ErrorCode.TOKEN_EXPIRED_OR_INVALID);
+        } catch (ParseException | JOSEException e) {
+            log.error("Error in parsing or verifying token: ", e);
+            throw new RuntimeException("Failed to parse or verify token");
+        }
     }
 
+
     public AuthenticationResponse refreshToken(RefreshRequest request) throws ParseException, JOSEException {
+        log.info("function  refresh token in AuthenticationService");
+        // Xác thực và kiểm tra token
         var signedJWT = verifyToken(request.getToken(), true);
+
+        // Kiểm tra nếu token đã bị vô hiệu hóa
         String jit = signedJWT.getJWTClaimsSet().getJWTID();
+        if (invalidatedTokenRepository.existsById(jit)) {
+            log.info("Token already invalidated: (invalidatedTokenRepository.existsById(jit)");
+            throw new CustomException(ErrorCode.TOKEN_EXPIRED_OR_INVALID);
+        }
+        // Kiểm tra thời hạn sống của refresh token
         Date expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
-        InvalidatedToken invalidatedToken = InvalidatedToken.builder()
-                .id(jit)
-                .expiryTime(expiryTime)
-                .build();
+
+        //Thêm vào bảng invalidated_token để biết token này đã logout
+        InvalidatedToken invalidatedToken =
+                InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
+
         invalidatedTokenRepository.save(invalidatedToken);
+
+        // Xác định người dùng từ refresh token
         var username = signedJWT.getJWTClaimsSet().getSubject();
         var user = userRepository.findByUsername(username)
-                .orElseThrow(()->new CustomException(ErrorCode.USER_NOT_EXISTED));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_EXISTED));
+
+        // Sinh access token mới
         var token = generateToken(user);
         return AuthenticationResponse.builder()
                 .authenticated(true)
@@ -113,23 +141,33 @@ public class AuthenticationService {
     }
 
     private SignedJWT verifyToken(String token, boolean isRefresh) throws ParseException, JOSEException {
+        log.info("function  verify token in AuthenticationService");
         JWSVerifier verifier = new MACVerifier(SIGNER_KEY.getBytes());
         SignedJWT signedJWT = SignedJWT.parse(token);
         Date expirationDate = (isRefresh) ?
                 new Date(signedJWT.getJWTClaimsSet().getIssueTime().toInstant()
                         .plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS).toEpochMilli())
-                : signedJWT.getJWTClaimsSet().getExpirationTime();;
+                : signedJWT.getJWTClaimsSet().getExpirationTime();
         boolean verified = signedJWT.verify(verifier);
         boolean isValid = verified && expirationDate != null && expirationDate.after(new Date());
+        log.info("verified: {}", verified);
+        log.info("expirationDate: {}", expirationDate != null);
+        log.info("expirationDate.after(new Date()): {} ", expirationDate.after(new Date()));
+
         if(!isValid){
+            log.info("is not Valid ");
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
-        if(invalidatedTokenRepository.existsById(signedJWT.getJWTClaimsSet().getJWTID()))
+
+        if(invalidatedTokenRepository.existsById(signedJWT.getJWTClaimsSet().getJWTID())) {
+            log.info(" check token in table invalidated token ");
             throw new CustomException(ErrorCode.UNAUTHENTICATED);
+        }
         return signedJWT;
     }
 
     private String generateToken(User user){
+        log.info("function  generateToken in AuthenticationService");
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
                 .subject(user.getUsername())
@@ -153,6 +191,7 @@ public class AuthenticationService {
     }
 
     public IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException {
+        log.info("function  introspect in AuthenticationService");
         if (request == null || request.getToken() == null ) {
             throw new IllegalArgumentException("Request, token cannot be null");
         }
@@ -170,7 +209,8 @@ public class AuthenticationService {
 
     }
 
-    private String buildScope(User user){
+    private String buildScope(User user) throws CustomException{
+        log.info("function  buildScope in AuthenticationService");
         StringJoiner stringJoiner = new StringJoiner(" ");
         if(!CollectionUtils.isEmpty(user.getRoles())){
             user.getRoles().forEach(role -> {
@@ -184,8 +224,10 @@ public class AuthenticationService {
                 }
 
             });
+        }else {
+            log.info("CollectionUtils.isEmpty(user.getRoles()) is empty");
         }
-        log.info("===> scope in JWT:  {} ",stringJoiner.toString());
+        log.info("===> scope in JWT:  {} ###",stringJoiner.toString());
         return stringJoiner.toString();
     }
 

@@ -3,6 +3,7 @@ package com.nhvinh.ecommerce.config;
 import com.nhvinh.ecommerce.dto.IntrospectRequest;
 import com.nhvinh.ecommerce.service.AuthenticationService;
 import com.nimbusds.jose.JOSEException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.text.ParseException;
-
+@Slf4j
 @Component
 public class CustomJwtDecoder implements JwtDecoder {
 
@@ -27,7 +28,9 @@ public class CustomJwtDecoder implements JwtDecoder {
 
     @Override
     public Jwt decode(String token) throws JwtException {
+        log.info("function decodeJwt in CustomJwtDecoder");
         try {
+            log.info("call function introspect in CustomJwtDecoder");
             var response =  authenticationService.introspect(IntrospectRequest.builder().token(token).build());
             if(!response.isValid())
                 throw new JwtException("Invalid token");
